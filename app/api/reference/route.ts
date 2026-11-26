@@ -1,0 +1,7 @@
+import {env} from 'cloudflare:workers';
+import {getChatGPTUser} from '../../chatgpt-auth';
+import {referenceSchema} from '../../../lib/core';
+export const dynamic='force-dynamic';
+const json=(v:unknown,status=200)=>Response.json(v,{status,headers:{'Cache-Control':'no-store'}});
+export async function GET(req:Request){const user=await getChatGPTUser();if(!user)return json({error:'Entre na sua conta.'},401);const id=new URL(req.url).searchParams.get('id');const row=await env.DB!.prepare('SELECT object_key,metadata FROM visual_references WHERE owner=? AND id=?').bind(user.userId,id).first<{object_key:string,metadata:string}>();if(!row)return json({error:'Referência não encontrada.'},404);const file=await env.BUCKET!.get(row.object_key);if(!file)return json({error:'Arquivo não encontrado.'},404);const meta=referenceSchema.parse(JSON.parse(row.metadata));return new Response(file.body,{headers:{'Content-Type':meta.type,'Content-Disposition':`${meta.type==='text/html'?'attachment':'inline'}; filename*=UTF-8''${encodeURIComponent(meta.name)}`,'X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'; sandbox",'Cache-Control':'private, no-store'}})}
+export async function POST(){const user=await getChatGPTUser();if(!user)return json({error:'Entre na sua conta.'},401);return json({error:'O VendaOS agora é dedicado à copy. O envio de referências para páginas foi encerrado.'},410)}
